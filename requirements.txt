@@ -1,9 +1,5 @@
-streamlit>=1.10.0
-rembg>=2.0.17
-Pillow>=9.0.0
-matplotlib>=3.5.2
-loguru==0.6.0
-
-# Extra
-python-dotenv==0.20.0
-gotipy==0.2
+rembg>=2.0.50
+streamlit>=1.28.0
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python-headless>=4.8.0
