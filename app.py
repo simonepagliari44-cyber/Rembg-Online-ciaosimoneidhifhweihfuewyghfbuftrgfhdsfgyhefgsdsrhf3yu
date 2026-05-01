@@ -8,27 +8,6 @@ st.set_page_config(page_title="Rimuovi Sfondo", page_icon="🖼️")
 st.title("🖼️ Rimuovi Sfondo Immagini")
 
 # ============================================================
-# CONFIGURAZIONE PROXY PRIVATO
-# ============================================================
-PROXY_URL = "https://cors-proxy.simonepagliari44.workers.dev"
-SECRET_KEY = "fcdchVDgavjfhsndbgnmbgnfxdnsxdwjhgfygfffFDRDTrd*@#"  # Deve essere uguale a quella nel worker
-
-def call_proxy(image_bytes, target_api):
-    """Chiama il proxy con autenticazione"""
-    proxy_full_url = f"{PROXY_URL}?url={target_api}"
-    
-    headers = {
-        "X-API-Key": SECRET_KEY  # 🔐 Chiave di accesso
-    }
-    
-    files = {
-        "image_file": ("image.png", image_bytes, "image/png")
-    }
-    
-    response = requests.post(proxy_full_url, headers=headers, files=files)
-    return response
-
-# ============================================================
 # INTERFACCIA STREAMLIT
 # ============================================================
 uploaded_file = st.file_uploader("Scegli un'immagine...", type=["jpg", "png", "jpeg"])
