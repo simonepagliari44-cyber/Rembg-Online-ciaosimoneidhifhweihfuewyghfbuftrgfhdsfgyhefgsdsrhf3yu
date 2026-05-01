@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import imghdr
 import io
 import json
 import os
@@ -13,10 +12,18 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageSequence
 from dotenv import load_dotenv
-from gotipy import Gotify
 from loguru import logger
-from rembg.bg import remove
+from rembg import remove
 
+# === FUNZIONE ALTERNATIVA PER CONTROLLARE TIPO FILE (senza imghdr) ===
+def is_valid_image(file_bytes, allowed_extensions=['png', 'jpg', 'jpeg', 'gif']):
+    """Controlla se i byte del file corrispondono a un'immagine valida"""
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img.verify()
+        return True
+    except Exception:
+        return False
 
 def remove_bg(input_data, path):
     result = remove(input_data)
@@ -25,11 +32,9 @@ def remove_bg(input_data, path):
         img.LOAD_TRUNCATED_IMAGES = True
     return img
 
-
 def gif2frames(input_file, skip_every=1):
     im = Image.open(input_file)
-    include_frames = range(0, len(list(ImageSequence.Iterator(im))),
-                           skip_every)
+    include_frames = range(0, len(list(ImageSequence.Iterator(im))), skip_every)
 
     frames = []
 
@@ -42,37 +47,31 @@ def gif2frames(input_file, skip_every=1):
         frames.append((n, bytes_obj.getvalue()))
     return frames
 
-
 def main():
-    if GOTIFY:
-        g = Gotify(host_address=os.getenv('GOTIFY_HOST_ADDRESS'),
-                   fixed_token=os.getenv('GOTIFY_APP_TOKEN'),
-                   fixed_priority=9)
-
     if st.sidebar.button('CLEAR'):
         st.session_state['key'] = K
-        st.experimental_rerun()
+        st.rerun()  # experimental_rerun è deprecato
     st.sidebar.markdown('---')
 
     accept_multiple_files = True
     accepted_type = ['png', 'jpg', 'jpeg', 'gif']
 
     uploaded_files = st.sidebar.file_uploader(
-        f'Choose one or multiple files (max: {MAX_FILES})',
+        f'Scegli uno o più file (max: {MAX_FILES})',
         type=accepted_type,
         accept_multiple_files=accept_multiple_files,
         key=st.session_state['key'])
 
-    if len(uploaded_files) > MAX_FILES != -1:
+    if len(uploaded_files) > MAX_FILES and MAX_FILES != -1:
         st.warning(
-            f'Maximum number of files reached! Only the first {MAX_FILES} '
-            'will be processed.')
+            f'Numero massimo di file raggiunto! Solo i primi {MAX_FILES} '
+            'verranno processati.')
         uploaded_files = uploaded_files[:MAX_FILES]
 
     uploaded_files = [x for x in uploaded_files if x]
 
     if uploaded_files:
-        logger.info(f'Uploaded the following files: {uploaded_files}')
+        logger.info(f'File caricati: {uploaded_files}')
 
         progress_bar = st.empty()
         down_btn = st.empty()
@@ -86,20 +85,19 @@ def main():
             IS_GIF = True
             if len(uploaded_files) > 1:
                 st.error(
-                    f'The maximum number of allowed uploads when processing a '
-                    'GIF is one file!')
+                    'Quando processi un GIF puoi caricare un solo file!')
                 return
 
-            dur_text = 'Duration (in milliseconds) of each frame:'
+            dur_text = 'Durata (in millisecondi) di ogni frame:'
             duration = st.sidebar.slider(dur_text, 0, 1000, 100, 10)
             frames = gif2frames(uploaded_files[0])
 
         for uploaded_file in uploaded_files:
-
             bytes_data = uploaded_file.getvalue()
-
-            if imghdr.what(file='', h=bytes_data) not in accepted_type:
-                st.error(f'`{uploaded_file.name}` is not a valid image!')
+            
+            # VERIFICA SENZA imghdr
+            if not is_valid_image(bytes_data):
+                st.error(f'`{uploaded_file.name}` non è un\'immagine valida!')
                 continue
 
             if 'btn' not in st.session_state:
@@ -109,20 +107,14 @@ def main():
         col1.image([x[1] for x in imgs_bytes])
 
         nobg_imgs = []
-        if st.sidebar.button('Remove background'):
-            if GOTIFY:
-                files_dicts = [x.__dict__ for x in uploaded_files]
-                g.push(  # noqa
-                    'New Request', json.dumps(files_dicts, indent=4))
-
+        if st.sidebar.button('Rimuovi sfondo'):
             pb = progress_bar.progress(0)
 
             if frames:
                 imgs_bytes = frames
 
-            with st.spinner('Wait for it...'):
-                for n, (uploaded_file, bytes_data) in enumerate(imgs_bytes,
-                                                                start=1):
+            with st.spinner('Elaborazione in corso...'):
+                for n, (uploaded_file, bytes_data) in enumerate(imgs_bytes, start=1):
                     if isinstance(uploaded_file, int):
                         p = Path(str(uploaded_file) + '.png')
                     else:
@@ -138,14 +130,13 @@ def main():
                     pb.progress(cur_progress * n)
                 time.sleep(1)
                 progress_bar.empty()
-                pb.success('Complete!')
 
                 nobg_images = [x[0] for x in nobg_imgs]
 
                 if IS_GIF:
                     col2.markdown(
-                        '🧪 *Use [ezgif.com](https://ezgif.com/) to create '
-                        'the GIF file and edit individual frames.*')
+                        '🧪 *Usa [ezgif.com](https://ezgif.com/) per creare '
+                        'il file GIF e modificare i frame.*')
                 col2.image(nobg_images)
 
             if len(nobg_imgs) > 1:
@@ -160,33 +151,32 @@ def main():
                     zip_data = tmp_zip.getvalue()
 
                 if IS_GIF:
-                    frames_literal = '(individual frames)'
+                    frames_literal = '(frame individuali)'
                 else:
                     frames_literal = ''
 
                 down_btn.download_button(
-                    label=f'Download all results {frames_literal}',
+                    label=f'Scarica tutti i risultati {frames_literal}',
                     data=zip_data,
-                    file_name=f'results_{int(time.time())}.zip',
+                    file_name=f'risultati_{int(time.time())}.zip',
                     mime='application/zip',
                     key='btn')
             else:
                 try:
                     out = nobg_imgs[0]
                     down_btn.download_button(
-                        label='Download result',
+                        label='Scarica risultato',
                         data=out[-1],
                         file_name=f'{out[1].stem}_nobg.png',
                         mime='image/png',
                         key='btn')
                 except IndexError:
-                    st.error('No more images to process!')
+                    st.error('Nessuna immagine da processare!')
                 finally:
                     st.session_state['key'] = K
 
-
 if __name__ == '__main__':
-    st.set_page_config(page_title='Remove Background',
+    st.set_page_config(page_title='Rimuovi Sfondo',
                        page_icon='✂️',
                        initial_sidebar_state='expanded')
     st.markdown(
@@ -201,10 +191,7 @@ if __name__ == '__main__':
     if os.getenv('MAX_FILES'):
         MAX_FILES = int(os.getenv('MAX_FILES'))
 
-    GOTIFY = False
-    if os.getenv('GOTIFY_HOST_ADDRESS') and os.getenv('GOTIFY_APP_TOKEN'):
-        GOTIFY = True
-
+    # Rimossa la parte Gotify che causava errori
     K = str(uuid.uuid4())
     if 'key' not in st.session_state:
         st.session_state['key'] = K
