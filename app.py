@@ -11,7 +11,7 @@ st.title("🖼️ Rimuovi Sfondo Immagini")
 # CONFIGURAZIONE PROXY PRIVATO
 # ============================================================
 PROXY_URL = "https://cors-proxy.simonepagliari44.workers.dev"
-SECRET_KEY = "mia-app-famiglia-2024"  # Deve essere uguale a quella nel worker
+SECRET_KEY = "fcdchVDgavjfhsndbgnmbgnfxdnsxdwjhgfygfffFDRDTrd*@#"  # Deve essere uguale a quella nel worker
 
 def call_proxy(image_bytes, target_api):
     """Chiama il proxy con autenticazione"""
